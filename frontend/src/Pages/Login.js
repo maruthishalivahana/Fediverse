@@ -47,54 +47,64 @@ function Login() {
   };
 
   return (
-    <div className="container mt-5 col-md-5">
-      <h2 className="mb-4">Login</h2>
-      <form
-        noValidate
-        className={`needs-validation ${validated ? "was-validated" : ""}`}
-        onSubmit={handleLogin}
-      >
-        {/* Floating Username */}
-        <div className="form-floating mb-3">
-          <input
-            type="text"
-            id="floatingUsername"
-            name="username"
-            className="form-control"
-            placeholder="Username"
-            onChange={handleChange}
-            value={formData.username}
-            required
-          />
-          <label htmlFor="floatingUsername">Username</label>
-          <div className="invalid-feedback">Please enter your username.</div>
-        </div>
+    <div className="login-page d-flex align-items-center justify-content-center">
+      <div className="login-card shadow">
+        <h2 className="text-center fs-4 fs-md-3 mb-4">
+          🌐 Welcome to{" "}
+          <span className="gradient-text">Fediverse</span>
+        </h2>
 
-        {/* Floating Password */}
-        <div className="form-floating mb-3">
-          <input
-            type="password"
-            id="floatingPassword"
-            name="password"
-            className="form-control"
-            placeholder="Password"
-            onChange={handleChange}
-            value={formData.password}
-            required
-            minLength="1"
-          />
-          <label htmlFor="floatingPassword">Password</label>
-          <div className="invalid-feedback">
-            Please enter your password (at least 1 characters).
+        <form
+          noValidate
+          className={`needs-validation ${validated ? "was-validated" : ""}`}
+          onSubmit={handleLogin}
+        >
+          {/* Username */}
+          <div className="form-floating mb-3">
+            <input
+              type="text"
+              id="floatingUsername"
+              name="username"
+              className="form-control"
+              placeholder="Username"
+              onChange={handleChange}
+              value={formData.username}
+              required
+            />
+            <label htmlFor="floatingUsername">Username</label>
+            <div className="invalid-feedback">Please enter your username.</div>
           </div>
-        </div>
 
-        <button className="btn btn-dark w-100" type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
+          {/* Password */}
+          <div className="form-floating mb-4">
+            <input
+              type="password"
+              id="floatingPassword"
+              name="password"
+              className="form-control"
+              placeholder="Password"
+              onChange={handleChange}
+              value={formData.password}
+              required
+            />
+            <label htmlFor="floatingPassword">Password</label>
+            <div className="invalid-feedback">
+              Please enter your password.
+            </div>
+          </div>
+
+          <button
+            className="btn btn-login-main w-100"
+            type="submit"
+            disabled={loading}
+          >
+            {loading ? "Logging in..." : "Login"}
+          </button>
+        </form>
+      </div>
     </div>
   );
+
 }
 
 export default Login;
