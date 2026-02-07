@@ -156,14 +156,16 @@ function Navbar() {
               Logout
             </button>
           ) : (
-            <div className="d-flex auth-buttons">
-              <Link className="btn btn-outline-light me-2" to="/login">
+            <div className="d-flex auth-buttons gap-3">
+              <Link className="btn btn-login" to="/login">
                 Login
               </Link>
-              <Link className="btn btn-success signup-btn" to="/signup">
+
+              <Link className="btn btn-signup" to="/signup">
                 Sign Up
               </Link>
             </div>
+
           )}
         </div>
       </div>

@@ -20,21 +20,26 @@ import Footer from "./components/Footer";
 function App() {
   return (
     <Router>
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/feed" element={<FeedPage />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/post" element={<PostForm />} />        
-        <Route path="/profile/:username" element={<UserProfile />} />        
-        <Route path="/debug-inbox" element={<InboxDebug />} />
-        <Route path="/followers/:username" element={<FollowersPage />} />
-        <Route path="/remote-search" element={<RemoteSearch />} />
-        <Route path="/local-users" element={<LocalUserSearch />} />
-        <Route path="/users/:username/outbox" element={< UserOutboxPage/>} />        
-      </Routes>
-      <Footer/>
+      <div className="app-wrapper">
+        <Navbar />
+
+        <main className="app-content">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/feed" element={<FeedPage />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/post" element={<PostForm />} />
+            <Route path="/profile/:username" element={<UserProfile />} />
+            <Route path="/debug-inbox" element={<InboxDebug />} />
+            <Route path="/followers/:username" element={<FollowersPage />} />
+            <Route path="/remote-search" element={<RemoteSearch />} />
+            <Route path="/local-users" element={<LocalUserSearch />} />
+            <Route path="/users/:username/outbox" element={< UserOutboxPage />} />
+          </Routes>
+        </main>
+        <Footer />
+      </div>
     </Router>
   );
 }
