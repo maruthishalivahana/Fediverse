@@ -6,6 +6,8 @@ const Post = require("../models/Post");
 const sendEmail = require("../utils/sendEmail");
 
 
+const crypto = require("crypto");
+
 exports.register = async (req, res) => {
   const { username, password, email } = req.body;
 
@@ -14,9 +16,8 @@ exports.register = async (req, res) => {
     return res.status(409).json({ success: false, message: "User already Exist, Please Login" });
   }
 
-
-
-  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  // 3️⃣ Secure OTP Generation
+  const otp = crypto.randomInt(100000, 1000000).toString();
   const verifyOtpExpairy = Date.now() + 10 * 60 * 1000;
 
   const user = await User.create({
@@ -28,32 +29,26 @@ exports.register = async (req, res) => {
     outbox: `${process.env.BASE_URL}/users/${username}/outbox`,
     isVerified: false,
     verifyOtp: otp,
-    verifyOtpExpairy: verifyOtpExpairy
+    verifyOtpExpairy: verifyOtpExpairy,
+    otpAttempts: 0,
+    otpLockUntil: undefined
   });
 
   const mailoption = {
     to: email,
     subject: "Verify your Fediverse account 🔐",
-    text: `Hello ${username},
-
-Welcome to Fediverse 👋
-
-Your One-Time Password (OTP) to verify your email is:
-
-👉 ${otp}
-
-This OTP is valid for 10 minutes.
-Please do not share it with anyone.
-
-— Team Fediverse`
+    text: `Hello ${username},\n\nWelcome to Fediverse 👋\n\nYour One-Time Password (OTP) to verify your email is:\n\n👉 ${otp}\n\nThis OTP is valid for 10 minutes.\nPlease do not share it with anyone.\n\n— Team Fediverse`
   }
 
   try {
+    // 4️⃣ Fail if email fails
     await sendEmail(mailoption);
     console.log("OTP email sent to:", email);
   } catch (err) {
     console.error("OTP email failed:", err.message);
-
+    // Cleanup user if email failed so they can try again
+    await User.deleteOne({ _id: user._id });
+    return res.status(500).json({ success: false, message: "Failed to send OTP email. Please try again." });
   }
 
   return res.status(201).json({ success: true, message: "Otp Send to Mail", next: "Verify_OTP" });
@@ -76,15 +71,39 @@ exports.verifyOtp = async (req, res) => {
       return res.status(200).json({ success: true, message: "User already verified", next: "Login" });
     }
 
+    // 2️⃣ Rate Limiting Check
+    if (user.otpLockUntil && user.otpLockUntil > Date.now()) {
+      const waitTime = Math.ceil((user.otpLockUntil - Date.now()) / 60000);
+      return res.status(429).json({ success: false, message: `Too many attempts. Try again in ${waitTime} minutes.` });
+    }
+
     if (user.verifyOtp !== otp || user.verifyOtpExpairy < Date.now()) {
+      // Increment attempts
+      user.otpAttempts += 1;
+
+      // Lock if attempts >= 5
+      if (user.otpAttempts >= 5) {
+        user.otpLockUntil = Date.now() + 15 * 60 * 1000; // 15 minutes lock
+        user.otpAttempts = 0; // Reset attempts after locking
+        await user.save();
+        return res.status(429).json({ success: false, message: "Too many failed attempts. Account locked for 15 minutes." });
+      }
+
+      await user.save();
       return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
     }
 
+    // Success: Reset attempts and verified
     user.isVerified = true;
     user.verifyOtp = undefined;
     user.verifyOtpExpairy = undefined;
+    user.otpAttempts = 0;
+    user.otpLockUntil = undefined;
     await user.save();
-    const welcomeHtml = `
+
+    // ... Welcome Email Logic (unchanged) ...
+    const welcomeHtml = `...`; // (Keeping brief for replacement context, using previous template)
+    const originalWelcomeHtml = `
 <div style="background-color:#0b0b0b; color:#ffffff; padding:40px 20px; font-family:Arial, sans-serif;">
   <table style="max-width:600px; margin:0 auto; border-spacing:0; width:100%;">
     <tr>
@@ -119,7 +138,7 @@ exports.verifyOtp = async (req, res) => {
     await sendEmail({
       to: user.email,
       subject: "Welcome to Fediverse! 🚀",
-      html: welcomeHtml
+      html: originalWelcomeHtml
     });
     console.log("Welcome email sent to:", user.email);
 
@@ -131,13 +150,6 @@ exports.verifyOtp = async (req, res) => {
   }
 };
 
-
-
-
-
-
-
-
 exports.login = async (req, res) => {
   const { username, password } = req.body;
 
@@ -147,6 +159,11 @@ exports.login = async (req, res) => {
 
   if (!user || !user.password) {
     return res.status(401).json({ error: "Invalid credentials" });
+  }
+
+  // 1️⃣ Enforce Email Verification
+  if (!user.isVerified) {
+    return res.status(403).json({ error: "Email not verified. Please verify your email first." });
   }
 
   const isMatch = await user.comparePassword(password);
@@ -167,6 +184,8 @@ exports.login = async (req, res) => {
   delete userData.privateKey;
   delete userData.verifyOtp;
   delete userData.verifyOtpExpairy;
+  delete userData.otpAttempts;
+  delete userData.otpLockUntil;
 
   // Send Login Alert Email (Async - don't wait for it)
   const alertHtml = `
