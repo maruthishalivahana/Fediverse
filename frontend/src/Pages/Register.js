@@ -39,70 +39,83 @@ function Signup() {
   };
 
   return (
-    <div className="container mt-5 col-md-6">
-      <h2 className="mb-4">Sign Up</h2>
-      <form
-        noValidate
-        className={`needs-validation ${validated ? "was-validated" : ""}`}
-        onSubmit={handleSignup}
-      >
-        {/* Floating Username */}
-        <div className="form-floating mb-3">
-          <input
-            type="text"
-            name="username"
-            id="floatingUsername"
-            className="form-control"
-            placeholder="Username"
-            value={formData.username}
-            onChange={handleChange}
-            required
-          />
-          <label htmlFor="floatingUsername">Username</label>
-          <div className="invalid-feedback">Please enter a username.</div>
-        </div>
+    <div className="login-page d-flex align-items-center justify-content-center">
+      <div className="login-card shadow">
+        <h2 className="text-center mb-4 fs-4 fs-md-3">
+          🌐 Join <span className="gradient-text">Fediverse</span>
+        </h2>
 
-        {/* Floating Password */}
-        <div className="form-floating mb-3">
-          <input
-            type="password"
-            name="password"
-            id="floatingPassword"
-            className="form-control"
-            placeholder="Password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            minLength="1"
-          />
-          <label htmlFor="floatingPassword">Password</label>
-          <div className="invalid-feedback">
-            Please enter a password with at least 1 characters.
+        <form
+          noValidate
+          className={`needs-validation ${validated ? "was-validated" : ""}`}
+          onSubmit={handleSignup}
+        >
+          {/* Username */}
+          <div className="form-floating mb-3">
+            <input
+              type="text"
+              name="username"
+              id="floatingUsername"
+              className="form-control"
+              placeholder="Username"
+              value={formData.username}
+              onChange={handleChange}
+              required
+            />
+            <label htmlFor="floatingUsername">Username</label>
+            <div className="invalid-feedback">Please enter a username.</div>
           </div>
-        </div>
 
-        {/* Floating Email */}
-        <div className="form-floating mb-3">
-          <input
-            type="email"
-            name="email"
-            id="floatingEmail"
-            className="form-control"
-            placeholder="Email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-          />
-          <label htmlFor="floatingEmail">Email address</label>
-          <div className="invalid-feedback">Please enter a valid email.</div>
-        </div>
+          {/* Email */}
+          <div className="form-floating mb-3">
+            <input
+              type="email"
+              name="email"
+              id="floatingEmail"
+              className="form-control"
+              placeholder="Email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+            <label htmlFor="floatingEmail">Email address</label>
+            <div className="invalid-feedback">Please enter a valid email.</div>
+          </div>
 
-        <button className="btn btn-outline-primary w-100" type="submit">
-          Register
-        </button>
-      </form>
+          {/* Password */}
+          <div className="form-floating mb-4">
+            <input
+              type="password"
+              name="password"
+              id="floatingPassword"
+              className="form-control"
+              placeholder="Password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+            <label htmlFor="floatingPassword">Password</label>
+            <div className="invalid-feedback">
+              Please enter a password.
+            </div>
+          </div>
+
+          <button className="btn btn-login-main w-100" type="submit">
+            Create Account
+          </button>
+
+          {/* Login link */}
+          <p className="text-center mt-3 mb-0 small">
+            Already have an account?{" "}
+            <a href="/login" className="fw-semibold text-decoration-none">
+              Login
+            </a>
+          </p>
+        </form>
+      </div>
     </div>
   );
+
 }
 
 export default Signup;
