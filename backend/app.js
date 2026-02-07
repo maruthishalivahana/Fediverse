@@ -19,7 +19,7 @@ const postRoutes = require('./routes/postRoutes');
 const activityPubRoutes = require('./routes/activityPubRoutes');
 const feedRoutes = require("./routes/feedRoutes");
 const followRoutes = require("./routes/followRoutes");
-const auth=require("./routes/auth");
+// const auth=require("./routes/auth");
 const commentRoutes = require('./routes/comments');
 
 
@@ -46,7 +46,7 @@ app.use("/api", feedRoutes);
 app.use("/.well-known", activityPubRoutes); // Webfinger
 
 app.use("/users", activityPubRoutes);
-app.use("/api/auth", auth);
+// app.use("/api/auth", auth);
 // Error handler
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
