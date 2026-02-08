@@ -1,5 +1,12 @@
 # Node.js
-node_modules/       # optional, but recommended
+node_modules/  
+backend/node_modules/
+frontend/node_modules/
+config/firebase.json
+.env
+frontend/.env
+backend/.env
+     # optional, but recommended
 npm-debug.log
 yarn-error.log
 
