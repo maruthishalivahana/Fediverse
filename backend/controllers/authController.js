@@ -1,9 +1,9 @@
-
+const admin = require("../config/firebaseAdmin");
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const Post = require("../models/Post"); 
-const sendGreetingEmail=require("./mail")
+const Post = require("../models/Post");
+const sendGreetingEmail = require("./mail")
 
 
 exports.register = async (req, res) => {
@@ -20,12 +20,12 @@ exports.register = async (req, res) => {
     password,
     email,
     actorUrl: `${process.env.BASE_URL}/users/${username}`,
-    inbox: `${process.env.BASE_URL}/users/${username}/inbox`,    
-    outbox: `${process.env.BASE_URL}/users/${username}/outbox`,   
+    inbox: `${process.env.BASE_URL}/users/${username}/inbox`,
+    outbox: `${process.env.BASE_URL}/users/${username}/outbox`,
   });
   sendGreetingEmail(email, username)
-  .then(() => console.log("Welcome email sent"))
-  .catch((err) => console.error("❌ Failed to send greeting email:", err));
+    .then(() => console.log("Welcome email sent"))
+    .catch((err) => console.error("❌ Failed to send greeting email:", err));
 
   res.status(201).json({ message: "User created" });
 };
@@ -61,7 +61,7 @@ exports.login = async (req, res) => {
   const token = jwt.sign({
     id: user._id,
     username: user.username,
-    actor: `${process.env.BASE_URL}/users/${user.username}`, 
+    actor: `${process.env.BASE_URL}/users/${user.username}`,
   }, process.env.JWT_SECRET, { expiresIn: "7d" });
   console.log(" Token created:", token);
 
@@ -94,5 +94,70 @@ exports.deletePost = async (req, res) => {
   } catch (err) {
     console.error("Server error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+};
+//  fire base auth 
+
+
+
+exports.googleAuth = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ message: "Token required" });
+    }
+
+    const decoded = await admin.auth().verifyIdToken(token);
+    const { email, name } = decoded;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email not found in Google token" });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // Use email as username (before @), fallback to full email if needed
+      let username = email.split("@")[0];
+      // Ensure username is unique
+      let existing = await User.findOne({ username });
+      if (existing) {
+        username = email.replace(/[^a-zA-Z0-9]/g, "_");
+      }
+      // Generate a random password (Google users won't use it)
+      const randomPassword = Math.random().toString(36).slice(-8);
+      user = await User.create({
+        username,
+        password: randomPassword,
+        email,
+        actorUrl: `${process.env.BASE_URL}/users/${username}`,
+        inbox: `${process.env.BASE_URL}/users/${username}/inbox`,
+        outbox: `${process.env.BASE_URL}/users/${username}/outbox`,
+      });
+    }
+
+    const appToken = jwt.sign(
+      {
+        id: user._id,
+        username: user.username,
+        actor: `${process.env.BASE_URL}/users/${user.username}`,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const userData = user.toObject();
+    delete userData.password;
+    delete userData.privateKey;
+
+    res.status(200).json({
+      message: "Google login successful",
+      token: appToken,
+      user: userData,
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(401).json({ message: "Invalid Firebase token" });
   }
 };
