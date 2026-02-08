@@ -16,6 +16,11 @@ const userSchema = new mongoose.Schema({
   privateKey: { type: String, select: false }, // Private key should not be returned by default
   followers: { type: [String], default: [] },
   following: { type: [String], default: [] },
+  isVerified: { type: Boolean, default: false },
+  verifyOtp: String,
+  verifyOtpExpairy: Date,
+  otpAttempts: { type: Number, default: 0 },
+  otpLockUntil: Date,
 });
 
 userSchema.pre("save", async function (next) {
