@@ -11,16 +11,50 @@ const crypto = require("crypto");
 exports.register = async (req, res) => {
   const { username, password, email } = req.body;
 
-  const existingUser = await User.findOne({ email });
-  if (existingUser) {
-    return res.status(409).json({ success: false, message: "User already Exist, Please Login" });
+  // Check for existing user
+  let user = await User.findOne({ $or: [{ email }, { username }] });
+
+  if (user) {
+    if (user.isVerified) {
+      return res.status(409).json({ success: false, message: "User already Exist, Please Login" });
+    }
+
+    // User exists but NOT verified -> Resend OTP logic
+    // Update fields
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    const verifyOtpExpairy = Date.now() + 10 * 60 * 1000;
+
+    user.username = username; // Update username if they changed it
+    user.password = password; // Update password if they changed it
+    user.verifyOtp = otp;
+    user.verifyOtpExpairy = verifyOtpExpairy;
+    user.otpAttempts = 0;
+    user.otpLockUntil = undefined;
+    await user.save();
+
+    // Send email (same logic as new user)
+    const mailoption = {
+      to: email,
+      subject: "Verify your Fediverse account 🔐",
+      text: `Hello ${username},\n\nWelcome to Fediverse 👋\n\nYour One-Time Password (OTP) to verify your email is:\n\n👉 ${otp}\n\nThis OTP is valid for 10 minutes.\nPlease do not share it with anyone.\n\n— Team Fediverse`
+    }
+
+    try {
+      await sendEmail(mailoption);
+      console.log("OTP email resent to:", email);
+      return res.status(200).json({ success: true, message: "OTP resent successfully", next: "Verify_OTP" });
+    } catch (err) {
+      console.error("OTP email resent failed:", err.message);
+      return res.status(500).json({ success: false, message: "Failed to send OTP email. Please try again." });
+    }
   }
 
+  // New User Logic
   // 3️⃣ Secure OTP Generation
   const otp = crypto.randomInt(100000, 1000000).toString();
   const verifyOtpExpairy = Date.now() + 10 * 60 * 1000;
 
-  const user = await User.create({
+  user = await User.create({
     username,
     password,
     email,
