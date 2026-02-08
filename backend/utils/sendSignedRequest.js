@@ -11,13 +11,13 @@ const sendSignedRequest = async (actorUsername, inboxUrl, activity) => {
       throw new Error("Invalid username: username cannot be undefined or empty");
     }
 
-    const actorUrl = `${process.env.DOMAIN}/users/${actorUsername}`;
-
     // Load user-specific private key from database
-    const user = await User.findOne({ username: actorUsername }).select("+privateKey");
+    const user = await User.findOne({ username: actorUsername }).select("+privateKey +actorUrl");
     if (!user || !user.privateKey) {
       throw new Error(`Private key not found for user: ${actorUsername}`);
     }
+
+    const actorUrl = user.actorUrl || `${process.env.BASE_URL}/users/${actorUsername}`;
 
     const privateKey = user.privateKey;
 
