@@ -108,141 +108,175 @@ exports.verifyOtp = async (req, res) => {
   }
 
   try {
-    exports.forgotPassword = async (req, res) => {
-      const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
-      try {
-        const user = await User.findOne({ email });
-        if (!user) {
-          return res.status(404).json({ success: false, message: "User not found" });
-        }
+    if (user.verifyOtp !== otp || user.verifyOtpExpairy < Date.now()) {
+      return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+    }
 
-        const otp = crypto.randomInt(100000, 1000000).toString();
-        const verifyOtpExpairy = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.isVerified = true;
+    user.verifyOtp = undefined;
+    user.verifyOtpExpairy = undefined;
+    await user.save();
 
-        user.verifyOtp = otp;
-        user.verifyOtpExpairy = verifyOtpExpairy;
-        await user.save();
+    return res.json({ success: true, message: "Email verified successfully. You can now login." });
+  } catch (error) {
+    console.error("Verify OTP error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
 
-        const mailoption = {
-          to: email,
-          subject: "Reset your Password 🔐",
-          text: `Hello ${user.username},\n\nYou requested to reset your password.\n\nYour One-Time Password (OTP) is:\n\n👉 ${otp}\n\nThis OTP is valid for 10 minutes.\nIf you did not request this, please ignore this email.\n\n— Team Fediverse`
-        };
 
-        await sendEmail(mailoption);
 
-        res.json({ success: true, message: "OTP sent to your email" });
+exports.deletePost = async (req, res) => {
+  try {
+    const postId = req.params.postId;
 
-      } catch (error) {
-        console.error("Forgot password error:", error);
-        res.status(500).json({ success: false, message: "Internal server error" });
-      }
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    // Authorization check (for local or remote)
+    if (
+      post.author?.toString() !== req.user.id &&
+      post.actor !== req.user.actor
+    ) {
+      return res.status(403).json({ error: "Not authorized to delete this post" });
+    }
+
+    await post.deleteOne();
+    res.json({ message: "Post deleted" });
+  } catch (err) {
+    console.error("Server error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    const verifyOtpExpairy = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    user.verifyOtp = otp;
+    user.verifyOtpExpairy = verifyOtpExpairy;
+    await user.save();
+
+    const mailoption = {
+      to: email,
+      subject: "Reset your Password 🔐",
+      text: `Hello ${user.username},\n\nYou requested to reset your password.\n\nYour One-Time Password (OTP) is:\n\n👉 ${otp}\n\nThis OTP is valid for 10 minutes.\nIf you did not request this, please ignore this email.\n\n— Team Fediverse`
     };
 
-    exports.resetPassword = async (req, res) => {
-      const { email, otp, newPassword, confirmPassword } = req.body;
+    await sendEmail(mailoption);
 
-      if (newPassword !== confirmPassword) {
-        return res.status(400).json({ success: false, message: "Passwords do not match" });
+    res.json({ success: true, message: "OTP sent to your email" });
+
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  const { email, otp, newPassword, confirmPassword } = req.body;
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ success: false, message: "Passwords do not match" });
+  }
+
+  try {
+    const user = await User.findOne({ email }).select("+password");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (user.verifyOtp !== otp || user.verifyOtpExpairy < Date.now()) {
+      return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+    }
+
+    user.password = newPassword; // Will be hashed by pre-save hook
+    user.verifyOtp = undefined;
+    user.verifyOtpExpairy = undefined;
+    await user.save();
+
+    res.json({ success: true, message: "Password reset successfully. You can now login." });
+
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+//  fire base auth 
+
+exports.googleAuth = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ message: "Token required" });
+    }
+
+    const decoded = await admin.auth().verifyIdToken(token);
+    const { email, name } = decoded;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email not found in Google token" });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // Use email as username (before @), fallback to full email if needed
+      let username = email.split("@")[0];
+      // Ensure username is unique
+      let existing = await User.findOne({ username });
+      if (existing) {
+        username = email.replace(/[^a-zA-Z0-9]/g, "_");
       }
+      // Generate a random password (Google users won't use it)
+      const randomPassword = Math.random().toString(36).slice(-8);
+      user = await User.create({
+        username,
+        password: randomPassword,
+        email,
+        actorUrl: `${process.env.BASE_URL}/users/${username}`,
+        inbox: `${process.env.BASE_URL}/users/${username}/inbox`,
+        outbox: `${process.env.BASE_URL}/users/${username}/outbox`,
+      });
+    }
 
-      try {
-        const user = await User.findOne({ email }).select("+password");
-        if (!user) {
-          return res.status(404).json({ success: false, message: "User not found" });
-        }
+    const appToken = jwt.sign(
+      {
+        id: user._id,
+        username: user.username,
+        actor: `${process.env.BASE_URL}/users/${user.username}`,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
-        if (user.verifyOtp !== otp || user.verifyOtpExpairy < Date.now()) {
-          return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
-        }
+    const userData = user.toObject();
+    delete userData.password;
+    delete userData.privateKey;
 
-        user.password = newPassword; // Will be hashed by pre-save hook
-        user.verifyOtp = undefined;
-        user.verifyOtpExpairy = undefined;
-        await user.save();
-
-        res.json({ success: true, message: "Password reset successfully. You can now login." });
-
-      } catch (error) {
-        console.error("Reset password error:", error);
-        res.status(500).json({ success: false, message: "Internal server error" });
-      }
-    };
-
-    //  fire base auth 
-
-    exports.googleAuth = async (req, res) => {
-      try {
-        const { token } = req.body;
-        if (!token) {
-          return res.status(400).json({ message: "Token required" });
-        }
-
-        const decoded = await admin.auth().verifyIdToken(token);
-        const { email, name } = decoded;
-
-        if (!email) {
-          return res.status(400).json({ message: "Email not found in Google token" });
-        }
-
-        let user = await User.findOne({ email });
-
-        if (!user) {
-          // Use email as username (before @), fallback to full email if needed
-          let username = email.split("@")[0];
-          // Ensure username is unique
-          let existing = await User.findOne({ username });
-          if (existing) {
-            username = email.replace(/[^a-zA-Z0-9]/g, "_");
-          }
-          // Generate a random password (Google users won't use it)
-          const randomPassword = Math.random().toString(36).slice(-8);
-          user = await User.create({
-            username,
-            password: randomPassword,
-            email,
-            actorUrl: `${process.env.BASE_URL}/users/${username}`,
-            inbox: `${process.env.BASE_URL}/users/${username}/inbox`,
-            outbox: `${process.env.BASE_URL}/users/${username}/outbox`,
-          });
-        }
-
-        const appToken = jwt.sign(
-          {
-            id: user._id,
-            username: user.username,
-            actor: `${process.env.BASE_URL}/users/${user.username}`,
-          },
-          process.env.JWT_SECRET,
-          { expiresIn: "7d" }
-        );
-
-        const userData = user.toObject();
-        delete userData.password;
-        delete userData.privateKey;
-
-        res.status(200).json({
-          message: "Google login successful",
-          token: appToken,
-          user: userData,
-        });
-
-      } catch (err) {
-        console.error(err);
-        res.status(401).json({ message: "Invalid Firebase token" });
-      }
-    };
     // Send Login Alert Email (Async - don't wait for it)
     const alertHtml = `
-    <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f8f9fa;">
-      <h3 style="color: #28a745;">New Login Detected</h3>
-      <p>Hello ${user.username},</p>
-      <p>We noticed a successful login to your account.</p>
-      <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
-      <p>If this was you, you can ignore this email.</p>
-    </div>
-  `;
+      <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f8f9fa;">
+        <h3 style="color: #28a745;">New Login Detected</h3>
+        <p>Hello ${user.username},</p>
+        <p>We noticed a successful login to your account.</p>
+        <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+        <p>If this was you, you can ignore this email.</p>
+      </div>
+    `;
 
     sendEmail({
       to: user.email,
@@ -250,155 +284,14 @@ exports.verifyOtp = async (req, res) => {
       html: alertHtml
     }).catch(err => console.error("Login alert email failed", err));
 
-    return res.json({ token, user: userData });
-  };
+    res.status(200).json({
+      message: "Google login successful",
+      token: appToken,
+      user: userData,
+    });
 
-
-
-  exports.deletePost = async (req, res) => {
-    try {
-      const postId = req.params.postId;
-
-      const post = await Post.findById(postId);
-      if (!post) return res.status(404).json({ error: "Post not found" });
-
-      // Authorization check (for local or remote)
-      if (
-        post.author?.toString() !== req.user.id &&
-        post.actor !== req.user.actor
-      ) {
-        return res.status(403).json({ error: "Not authorized to delete this post" });
-      }
-
-      await post.deleteOne();
-      res.json({ message: "Post deleted" });
-    } catch (err) {
-      console.error("Server error:", err);
-      res.status(500).json({ error: "Server error" });
-    }
-  };
-
-  exports.forgotPassword = async (req, res) => {
-    const { email } = req.body;
-
-    try {
-      const user = await User.findOne({ email });
-      if (!user) {
-        return res.status(404).json({ success: false, message: "User not found" });
-      }
-
-      const otp = crypto.randomInt(100000, 1000000).toString();
-      const verifyOtpExpairy = Date.now() + 10 * 60 * 1000; // 10 minutes
-
-      user.verifyOtp = otp;
-      user.verifyOtpExpairy = verifyOtpExpairy;
-      await user.save();
-
-      const mailoption = {
-        to: email,
-        subject: "Reset your Password 🔐",
-        text: `Hello ${user.username},\n\nYou requested to reset your password.\n\nYour One-Time Password (OTP) is:\n\n👉 ${otp}\n\nThis OTP is valid for 10 minutes.\nIf you did not request this, please ignore this email.\n\n— Team Fediverse`
-      };
-
-      await sendEmail(mailoption);
-
-      res.json({ success: true, message: "OTP sent to your email" });
-
-    } catch (error) {
-      console.error("Forgot password error:", error);
-      res.status(500).json({ success: false, message: "Internal server error" });
-    }
-  };
-
-  exports.resetPassword = async (req, res) => {
-    const { email, otp, newPassword, confirmPassword } = req.body;
-
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({ success: false, message: "Passwords do not match" });
-    }
-
-    try {
-      const user = await User.findOne({ email }).select("+password");
-      if (!user) {
-        return res.status(404).json({ success: false, message: "User not found" });
-      }
-
-      if (user.verifyOtp !== otp || user.verifyOtpExpairy < Date.now()) {
-        return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
-      }
-
-      user.password = newPassword; // Will be hashed by pre-save hook
-      user.verifyOtp = undefined;
-      user.verifyOtpExpairy = undefined;
-      await user.save();
-
-      res.json({ success: true, message: "Password reset successfully. You can now login." });
-
-    } catch (error) {
-      console.error("Reset password error:", error);
-      res.status(500).json({ success: false, message: "Internal server error" });
-      //  fire base auth 
-
-
-
-      exports.googleAuth = async (req, res) => {
-        try {
-          const { token } = req.body;
-          if (!token) {
-            return res.status(400).json({ message: "Token required" });
-          }
-
-          const decoded = await admin.auth().verifyIdToken(token);
-          const { email, name } = decoded;
-
-          if (!email) {
-            return res.status(400).json({ message: "Email not found in Google token" });
-          }
-
-          let user = await User.findOne({ email });
-
-          if (!user) {
-            // Use email as username (before @), fallback to full email if needed
-            let username = email.split("@")[0];
-            // Ensure username is unique
-            let existing = await User.findOne({ username });
-            if (existing) {
-              username = email.replace(/[^a-zA-Z0-9]/g, "_");
-            }
-            // Generate a random password (Google users won't use it)
-            const randomPassword = Math.random().toString(36).slice(-8);
-            user = await User.create({
-              username,
-              password: randomPassword,
-              email,
-              actorUrl: `${process.env.BASE_URL}/users/${username}`,
-              inbox: `${process.env.BASE_URL}/users/${username}/inbox`,
-              outbox: `${process.env.BASE_URL}/users/${username}/outbox`,
-            });
-          }
-
-          const appToken = jwt.sign(
-            {
-              id: user._id,
-              username: user.username,
-              actor: `${process.env.BASE_URL}/users/${user.username}`,
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: "7d" }
-          );
-
-          const userData = user.toObject();
-          delete userData.password;
-          delete userData.privateKey;
-
-          res.status(200).json({
-            message: "Google login successful",
-            token: appToken,
-            user: userData,
-          });
-
-        } catch (err) {
-          console.error(err);
-          res.status(401).json({ message: "Invalid Firebase token" });
-        }
-      };
+  } catch (err) {
+    console.error(err);
+    res.status(401).json({ message: "Invalid Firebase token" });
+  }
+};
