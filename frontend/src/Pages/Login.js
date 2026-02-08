@@ -38,6 +38,13 @@ function Login() {
       navigate("/");
     } catch (err) {
       console.error("Login failed:", err.response?.data || err.message);
+
+      if (err.response?.status === 403 && err.response?.data?.error?.includes("Email not verified")) {
+        alert("Your email is not verified. Redirecting to verification...");
+        navigate("/signup"); // Redirect to signup to resend OTP
+        return;
+      }
+
       alert(
         err.response?.data?.error || "Login failed. Please check credentials."
       );
