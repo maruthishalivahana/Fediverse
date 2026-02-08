@@ -80,6 +80,16 @@ export default function Signup() {
         <div className="col-md-6 d-flex align-items-center justify-content-center bg-light">
           <div className="p-4 p-md-5 shadow-lg bg-white rounded-4" style={{ maxWidth: "500px", width: "90%" }}>
 
+            {/* Back Button */}
+            <div className="mb-4">
+              <button
+                onClick={() => navigate("/")}
+                className="btn btn-outline-secondary btn-sm"
+              >
+                &larr; Back to Home
+              </button>
+            </div>
+
             <div className="text-center mb-4">
               <h2 className="fw-bold mb-2">
                 {step === "verify" ? "Verify Account" : "Create Account"}

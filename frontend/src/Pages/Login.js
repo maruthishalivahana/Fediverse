@@ -77,6 +77,16 @@ function Login() {
         <div className="col-md-6 d-flex align-items-center justify-content-center bg-light">
           <div className="p-4 p-md-5 shadow-lg bg-white rounded-4" style={{ maxWidth: "450px", width: "90%" }}>
 
+            {/* Back Button */}
+            <div className="mb-4">
+              <button
+                onClick={() => navigate("/")}
+                className="btn btn-outline-secondary btn-sm"
+              >
+                &larr; Back to Home
+              </button>
+            </div>
+
             <div className="text-center mb-4">
               <h1 className="fw-bold mb-2">Fediverse</h1>
               <p className="text-muted">Login to your account</p>
@@ -103,8 +113,7 @@ function Login() {
                 <div className="invalid-feedback">Please enter your username.</div>
               </div>
 
-              {/* Password */}
-              <div className="form-floating mb-4">
+              <div className="form-floating mb-2">
                 <input
                   type="password"
                   id="floatingPassword"
@@ -119,6 +128,12 @@ function Login() {
                 <div className="invalid-feedback">
                   Please enter your password.
                 </div>
+              </div>
+
+              <div className="text-end mb-4">
+                <a href="/forgot-password" className="text-decoration-none small text-muted">
+                  Forgot Password?
+                </a>
               </div>
 
               <div className="d-grid gap-2 mb-3">
