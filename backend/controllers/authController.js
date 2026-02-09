@@ -1,4 +1,3 @@
-
 const admin = require("../config/firebaseAdmin");
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
@@ -294,4 +293,9 @@ exports.googleAuth = async (req, res) => {
     console.error(err);
     res.status(401).json({ message: "Invalid Firebase token" });
   }
+};
+
+exports.login = async (req, res) => {
+  // Implement your login logic here
+  res.status(501).json({ message: "Login not implemented" });
 };
