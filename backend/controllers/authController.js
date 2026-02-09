@@ -128,6 +128,64 @@ exports.verifyOtp = async (req, res) => {
   }
 };
 
+exports.login = async (req, res) => {
+  const { username, password } = req.body;
+
+  console.log("📥 Login attempt:", username ? `${username.slice(0, 3)}***` : "unknown");
+
+  const user = await User.findOne({ username }).select("+password +privateKey");
+
+  if (!user || !user.password) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+
+  //  Enforce Email Verification
+  if (!user.isVerified) {
+    return res.status(403).json({ error: "Email not verified. Please verify your email first." });
+  }
+
+  const isMatch = await user.comparePassword(password);
+
+  if (!isMatch) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+
+  // Generate Token
+  const token = jwt.sign({
+    id: user._id,
+    username: user.username,
+    actor: `${process.env.BASE_URL}/users/${user.username}`,
+  }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+  const userData = user.toObject();
+  delete userData.password;
+  delete userData.privateKey;
+  delete userData.verifyOtp;
+  delete userData.verifyOtpExpairy;
+  delete userData.otpAttempts;
+  delete userData.otpLockUntil;
+
+  // Send Login Alert Email (Async - don't wait for it)
+  const alertHtml = `
+    <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f8f9fa;">
+      <h3 style="color: #28a745;">New Login Detected</h3>
+      <p>Hello ${user.username},</p>
+      <p>We noticed a successful login to your account.</p>
+      <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+      <p>If this was you, you can ignore this email.</p>
+    </div>
+  `;
+
+  sendEmail({
+    to: user.email,
+    subject: "New Login Alert 🚨",
+    html: alertHtml
+  }).catch(err => console.error("Login alert email failed", err));
+
+  return res.json({ token, user: userData });
+};
+
+
 
 
 exports.deletePost = async (req, res) => {
@@ -307,9 +365,4 @@ exports.googleAuth = async (req, res) => {
     console.error("[GoogleAuth] Unexpected error:", err);
     res.status(500).json({ message: "Google login failed", error: err.message });
   }
-};
-
-exports.login = async (req, res) => {
-  // Implement your login logic here
-  res.status(501).json({ message: "Login not implemented" });
 };
