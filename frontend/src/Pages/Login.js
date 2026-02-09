@@ -1,4 +1,3 @@
-
 import React, { useState, useContext } from "react";
 import API from "../utils/api";
 import { useNavigate, Link } from "react-router-dom";
@@ -154,7 +153,6 @@ function Login() {
                       const result = await signInWithPopup(auth, googleProvider);
                       const user = result.user;
                       const firebaseIdToken = await user.getIdToken();
-                      // Send token to backend
                       const res = await API.post("/api/auth/google", { token: firebaseIdToken });
                       login(res.data.token);
                       localStorage.setItem("username", res.data.user.username);

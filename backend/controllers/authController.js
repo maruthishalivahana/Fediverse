@@ -220,13 +220,21 @@ exports.googleAuth = async (req, res) => {
   try {
     const { token } = req.body;
     if (!token) {
+      console.error("[GoogleAuth] No token provided in request body");
       return res.status(400).json({ message: "Token required" });
     }
 
-    const decoded = await admin.auth().verifyIdToken(token);
+    let decoded;
+    try {
+      decoded = await admin.auth().verifyIdToken(token);
+    } catch (verifyErr) {
+      console.error("[GoogleAuth] Firebase token verification failed:", verifyErr);
+      return res.status(401).json({ message: "Invalid Firebase token", error: verifyErr.message });
+    }
     const { email, name } = decoded;
 
     if (!email) {
+      console.error("[GoogleAuth] Email not found in decoded token", decoded);
       return res.status(400).json({ message: "Email not found in Google token" });
     }
 
@@ -252,15 +260,21 @@ exports.googleAuth = async (req, res) => {
       });
     }
 
-    const appToken = jwt.sign(
-      {
-        id: user._id,
-        username: user.username,
-        actor: `${process.env.BASE_URL}/users/${user.username}`,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    let appToken;
+    try {
+      appToken = jwt.sign(
+        {
+          id: user._id,
+          username: user.username,
+          actor: `${process.env.BASE_URL}/users/${user.username}`,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+    } catch (jwtErr) {
+      console.error("[GoogleAuth] JWT signing failed:", jwtErr);
+      return res.status(500).json({ message: "Failed to sign JWT", error: jwtErr.message });
+    }
 
     const userData = user.toObject();
     delete userData.password;
@@ -290,8 +304,8 @@ exports.googleAuth = async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(401).json({ message: "Invalid Firebase token" });
+    console.error("[GoogleAuth] Unexpected error:", err);
+    res.status(500).json({ message: "Google login failed", error: err.message });
   }
 };
 
