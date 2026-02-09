@@ -147,7 +147,9 @@ function Login() {
                 <button
                   className="btn btn-outline-primary w-100 mt-3"
                   type="button"
+                  disabled={loading}
                   onClick={async () => {
+                    setLoading(true);
                     try {
                       const result = await signInWithPopup(auth, googleProvider);
                       const user = result.user;
@@ -161,6 +163,8 @@ function Login() {
                     } catch (err) {
                       console.error("Google login failed:", err);
                       alert("Google login failed");
+                    } finally {
+                      setLoading(false);
                     }
                   }}
                 >
